@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>snip — link shortener</title>
+<style>
+  :root {
+    --ink: #14171c;
+    --paper: #f4f2ea;
+    --card: #1c2027;
+    --line: #33393f;
+    --mint: #8fe3b0;
+    --mint-dim: #4f7a63;
+    --amber: #e3b06a;
+    --muted: #8a8f97;
+    --danger: #d9776f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+  }
+  .wrap { width: 100%; max-width: 640px; }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .brand .mark {
+    color: var(--mint);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .brand .tag {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 32px; line-height: 1.5; }
+  .sub b { color: var(--paper); font-weight: 500; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 20px;
+    margin-bottom: 28px;
+  }
+  .row { display: flex; gap: 8px; }
+  input[type=text] {
+    flex: 1;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    color: var(--paper);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 12px 14px;
+    border-radius: 2px;
+    outline: none;
+    min-width: 0;
+  }
+  input[type=text]:focus { border-color: var(--mint-dim); }
+  input[type=text]::placeholder { color: var(--muted); }
+
+  .alias-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .alias-row .prefix { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .alias-row input { font-size: 13px; padding: 9px 10px; }
+
+  button.go {
+    background: var(--mint);
+    color: #0e1611;
+    border: none;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px 18px;
+    border-radius: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.go:hover { background: #a4ecbe; }
+  button.go:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
+
+  .err { color: var(--danger); font-size: 12px; margin-top: 10px; min-height: 14px; }
+
+  .result {
+    display: none;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--line);
+  }
+  .result.show { display: block; }
+  .result .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .result .linkline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--ink);
+    border: 1px solid var(--mint-dim);
+    border-radius: 2px;
+    padding: 12px 14px;
+  }
+  .result .linkline span { color: var(--mint); font-size: 15px; font-weight: 500; flex: 1; word-break: break-all; }
+  .copybtn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--paper);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .copybtn:hover { border-color: var(--mint-dim); }
+
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+  .section-head h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 500;
+    margin: 0;
+  }
+  .count { color: var(--muted); font-size: 11px; }
+
+  .list { display: flex; flex-direction: column; gap: 1px; }
+  .item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .item + .item { margin-top: 6px; }
+  .item .short { color: var(--mint); font-size: 13px; font-weight: 500; min-width: 120px; }
+  .item .long { color: var(--muted); font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .clicks { color: var(--amber); font-size: 11px; white-space: nowrap; }
+  .item .actions { display: flex; gap: 6px; }
+  .item button {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 5px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .item button:hover { color: var(--paper); border-color: var(--mint-dim); }
+  .item button.del:hover { color: var(--danger); border-color: var(--danger); }
+
+  .empty { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; border: 1px dashed var(--line); border-radius: 3px; }
+
+  .foot { color: var(--muted); font-size: 11px; margin-top: 28px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="mark">snip//</span>
+    <span class="tag">link shortener</span>
+  </div>
+  <p class="sub">Paste a long URL, get a short code. Saved to <b>this browser</b> so it's here next time you open the tool.</p>
+
+  <div class="panel">
+    <div class="row">
+      <input type="text" id="longUrl" placeholder="https://example.com/a/very/long/path?query=123" />
+      <button class="go" id="shortenBtn">Snip it</button>
+    </div>
+    <div class="alias-row">
+      <span class="prefix">custom code (optional)</span>
+      <input type="text" id="alias" placeholder="my-link" />
+    </div>
+    <div class="err" id="err"></div>
+
+    <div class="result" id="result">
+      <div class="lbl">Your short link</div>
+      <div class="linkline">
+        <span id="shortDisplay"></span>
+        <button class="copybtn" id="copyBtn">Copy</button>
+        <button class="copybtn" id="openBtn">Open ↗</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <h2>Your links</h2>
+    <span class="count" id="countLbl"></span>
+  </div>
+  <div id="listWrap"></div>
+
+  <div class="foot">
+    Short codes only resolve inside this tool — click "Open" or use the buttons below to follow them. There's no live public redirect server behind this.
+  </div>
+
+</div>
+
+<script>
+const STORAGE_KEY_PREFIX = 'snip_link_';
+let links = {};
+
+function genCode(len) {
+  const chars = 'abcdefghijkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXY23456789';
+  let s = '';
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function isValidUrl(str) {
+  try {
+    const u = new URL(str);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch { return false; }
+}
+
+function isValidAlias(str) {
+  return /^[a-zA-Z0-9-_]{1,32}$/.test(str);
+}
+
+async function loadLinks() {
+  try {
+    const res = await window.storage.list('link:');
+    if (!res || !res.keys || res.keys.length === 0) { links = {}; renderList(); return; }
+    const entries = await Promise.all(res.keys.map(async k => {
+      try {
+        const r = await window.storage.get(k);
+        return r ? [k.replace('link:', ''), JSON.parse(r.value)] : null;
+      } catch { return null; }
+    }));
+    links = {};
+    entries.forEach(e => { if (e) links[e[0]] = e[1]; });
+  } catch (e) {
+    links = {};
+  }
+  renderList();
+}
+
+async function saveLink(code, data) {
+  await window.storage.set('link:' + code, JSON.stringify(data));
+}
+
+async function deleteLink(code) {
+  await window.storage.delete('link:' + code);
+  delete links[code];
+  renderList();
+}
+
+function renderList() {
+  const wrap = document.getElementById('listWrap');
+  const codes = Object.keys(links).sort((a, b) => links[b].created - links[a].created);
+  document.getElementById('countLbl').textContent = codes.length ? codes.length + ' saved' : '';
+  if (codes.length === 0) {
+    wrap.innerHTML = '<div class="empty">No links yet. Shorten one above to get started.</div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="list">' + codes.map(code => {
+    const l = links[code];
+    const safeLong = l.longUrl.replace(/</g, '&lt;');
+    return `<div class="item" data-code="${code}">
+      <span class="short">/${code}</span>
+      <span class="long" title="${safeLong}">${safeLong}</span>
+      <span class="clicks">${l.clicks || 0} opens</span>
+      <div class="actions">
+        <button class="copyItem" data-code="${code}">Copy</button>
+        <button class="openItem" data-code="${code}">Open</button>
+        <button class="del" data-code="${code}">Delete</button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+
+  wrap.querySelectorAll('.copyItem').forEach(b => b.addEventListener('click', () => {
+    navigator.clipboard.writeText(location.origin + '/' + b.dataset.code);
+    b.textContent = 'Copied';
+    setTimeout(() => b.textContent = 'Copy', 1200);
+  }));
+  wrap.querySelectorAll('.openItem').forEach(b => b.addEventListener('click', async () => {
+    const code = b.dataset.code;
+    links[code].clicks = (links[code].clicks || 0) + 1;
+    await saveLink(code, links[code]);
+    renderList();
+    window.open(links[code].longUrl, '_blank');
+  }));
+  wrap.querySelectorAll('.del').forEach(b => b.addEventListener('click', () => deleteLink(b.dataset.code)));
+}
+
+document.getElementById('shortenBtn').addEventListener('click', async () => {
+  const errEl = document.getElementById('err');
+  errEl.textContent = '';
+  const longUrlRaw = document.getElementById('longUrl').value.trim();
+  const aliasRaw = document.getElementById('alias').value.trim();
+
+  if (!longUrlRaw) { errEl.textContent = 'Enter a URL first.'; return; }
+  const longUrl = /^https?:\/\//i.test(longUrlRaw) ? longUrlRaw : 'https://' + longUrlRaw;
+  if (!isValidUrl(longUrl)) { errEl.textContent = 'That doesn\'t look like a valid URL.'; return; }
+
+  let code;
+  if (aliasRaw) {
+    if (!isValidAlias(aliasRaw)) { errEl.textContent = 'Custom codes: letters, numbers, - and _ only.'; return; }
+    if (links[aliasRaw]) { errEl.textContent = 'That code is already taken. Pick another.'; return; }
+    code = aliasRaw;
+  } else {
+    do { code = genCode(6); } while (links[code]);
+  }
+
+  const data = { longUrl, created: Date.now(), clicks: 0 };
+  const btn = document.getElementById('shortenBtn');
+  btn.disabled = true;
+  btn.textContent = 'Snipping…';
+  try {
+    await saveLink(code, data);
+    links[code] = data;
+    renderList();
+    const shortStr = location.origin + '/' + code;
+    document.getElementById('shortDisplay').textContent = shortStr;
+    document.getElementById('result').classList.add('show');
+    document.getElementById('openBtn').onclick = async () => {
+      links[code].clicks = (links[code].clicks || 0) + 1;
+      await saveLink(code, links[code]);
+      renderList();
+      window.open(longUrl, '_blank');
+    };
+    document.getElementById('longUrl').value = '';
+    document.getElementById('alias').value = '';
+  } catch (e) {
+    errEl.textContent = 'Could not save the link. Try again.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Snip it';
+  }
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const text = document.getElementById('shortDisplay').textContent;
+  navigator.clipboard.writeText(text);
+  const b = document.getElementById('copyBtn');
+  b.textContent = 'Copied';
+  setTimeout(() => b.textContent = 'Copy', 1200);
+});
+
+document.getElementById('longUrl').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('shortenBtn').click();
+});
+
+loadLinks();
+</script>
+</body>
+</html>
